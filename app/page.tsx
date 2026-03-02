@@ -1,16 +1,31 @@
 'use client';
 
-import { useState } from "react";
-import { MOCK_AUDIO_FILES } from "@/lib/mockData";
-import { Play, Pause, MoreVertical } from 'lucide-react';
-import MiniPlayer from "@/components/layout/MiniPlayer";
-import AudioCard from "@/components/ui/AudioCard";
+import { useState } from 'react';
+import { MOCK_AUDIO_FILES } from '@/lib/mockData';
+import AudioCard from '@/components/ui/AudioCard';
+import MiniPlayer from '@/components/layout/MiniPlayer';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('new');
-  const filteredFiles = activeTab === 'all' ? MOCK_AUDIO_FILES : MOCK_AUDIO_FILES.filter((file) => file.status === activeTab);
+  const [activeTab, setActiveTab] = useState('all');
   const [currentTrack, setCurrentTrack] = useState<any | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+
+  // 1. Кладем наши файлы в состояние, чтобы иметь возможность их изменять
+  const [files, setFiles] = useState(MOCK_AUDIO_FILES);
+
+  // 2. Фильтруем теперь массив `files`, а не MOCK_AUDIO_FILES
+  const filteredFiles = activeTab === 'all'
+    ? files
+    : files.filter((file) => file.status === activeTab);
+
+  // 3. Функция, которая будет менять статус трека на 'played'
+  const handleMarkAsPlayed = (trackId: string) => {
+    setFiles((prevFiles) =>
+      prevFiles.map((file) =>
+        file.id === trackId ? { ...file, status: 'played' } : file
+      )
+    );
+  };
   return (
     <div className="px-4 py-6">
       <h1 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
@@ -96,6 +111,10 @@ export default function Home() {
         onClose={() => {
           setCurrentTrack(null);
           setIsPlaying(false);
+        }}
+        // Передаем функцию смены статуса в плеер
+        onMarkAsPlayed={() => {
+          if (currentTrack) handleMarkAsPlayed(currentTrack.id);
         }}
       />
     </div>
