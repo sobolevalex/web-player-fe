@@ -45,4 +45,12 @@ export const MOCK_AUDIO_FILES: AudioFile[] = [
     file_url: "/audio/sample-5.mp3",
     status: "played",
   },
+  {
+    id: "6",
+    title: "Enemy - Imagen Drugon",
+    channel_name: "Tech Digest",
+    duration: 213,
+    status: "new",
+    file_url: "/test.mp3" // <-- Добавили ссылку на файл
+  },
 ];

@@ -8,7 +8,7 @@ import { Home, Library, Settings } from "lucide-react";
 export function BottomNav() {
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white pb-6 pt-3 dark:border-zinc-800 dark:bg-zinc-900 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 sm:max-w-md"
+      className="fixed bottom-0 left-0 right-0 z-40 mx-auto w-full max-w-md border-t border-zinc-200 bg-white pb-3 pt-2 dark:border-zinc-800 dark:bg-zinc-900"
       aria-label="Main navigation"
     >
       <div className="flex justify-around">
