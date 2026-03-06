@@ -116,7 +116,7 @@ export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onM
     if (!track) return null;
 
     return (
-        <div className="fixed bottom-[84px] left-0 right-0 z-50 mx-auto w-full max-w-md bg-white/95 border-t border-zinc-200 px-4 py-2 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:bg-zinc-900/95 dark:border-zinc-800">
+        <div className="fixed bottom-[65px] left-0 right-0 z-50 mx-auto w-full max-w-md bg-white/95 border-t border-zinc-200 px-4 py-2 shadow-[0_-8px_30px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:bg-zinc-900/95 dark:border-zinc-800">
 
             <audio
                 ref={audioRef}
