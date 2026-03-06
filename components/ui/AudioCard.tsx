@@ -37,7 +37,8 @@ export default function AudioCard({
                     {file.title}
                 </p>
                 <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
-                    {file.channel_name} · {file.duration != null ? `${Math.floor(file.duration / 60)} min` : '— min'}
+                    {file.channel_name}
+                    {file.duration != null && ` · ${Math.floor(file.duration / 60)} min`}
                 </p>
                 <span className="mt-1 inline-block text-xs capitalize text-zinc-400 dark:text-zinc-500">
                     {file.status}
