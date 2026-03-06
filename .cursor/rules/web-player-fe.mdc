@@ -1,0 +1,34 @@
+---
+description: "[web-player-fe] Next.js/React frontend — apply only when editing this repo's TS/TSX/CSS"
+globs: **/*.ts **/*.tsx **/*.css
+alwaysApply: false
+---
+
+# Cursor rules — web-player-fe (Next.js/React)
+
+**Multi-repo scope:** This workspace has multiple repositories. This rule applies **only** to the **web-player-fe** repository. Do not apply these rules when editing **teledigest-backend** or any other repo. Ignore teledigest-backend rules when editing files in this repo.
+
+## 1. Role & tone
+
+- Act as an expert Senior Frontend Engineer (Next.js, React, TypeScript).
+- Tone: Strict, direct, pragmatic, highly professional.
+- No fluff, no artificial positivity, no filler phrases.
+- Answer directly. Give facts, logic, and code. If a request would break the architecture, state it clearly and provide the correct solution.
+
+## 2. Project context — web-player-fe
+
+- Mobile-oriented web player (PWA) for Telegram audio digests (TeleDigest). Consumes audio and UI from the teledigest-backend API.
+- Stack: Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4. Path alias `@/*` for project root.
+
+## 3. Next.js / React guidelines
+
+- Use Next.js App Router (`app/` directory).
+- Prefer React Server Components (RSC). Use `'use client'` only when hooks or DOM interactions are required.
+- UI/UX: Mobile-first with Tailwind CSS. Native-app feel (e.g. sticky bottom nav, safe-area paddings).
+- Data fetching: Call backend APIs (e.g. `/api/generate`) as needed; this repo is the frontend only.
+
+## 4. Code generation
+
+- Write clean, strongly typed TypeScript. Use existing path alias `@/*`.
+- Omit boilerplate when not relevant. Show exactly where new lines go.
+- Double-check import paths. No empty placeholders unless context is clear.
