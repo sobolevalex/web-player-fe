@@ -1,10 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getTracks, mapBackendTrackToAudioFile } from '@/lib/api';
 import type { AudioFile } from '@/types';
 import AudioCard from '@/components/ui/AudioCard';
 import MiniPlayer from '@/components/layout/MiniPlayer';
+
+/** How often to refresh the playlist in the background (ms). */
+const PLAYLIST_REFRESH_INTERVAL_MS = 15_000;
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('all');
@@ -14,6 +17,27 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const refreshPlaylist = useCallback((silent: boolean) => {
+    if (!silent) {
+      setError(null);
+      setLoading(true);
+    }
+    getTracks()
+      .then((res) =>
+        setFiles(
+          res.items
+            .filter((t) => t.status === 'done')
+            .map(mapBackendTrackToAudioFile)
+        )
+      )
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load tracks')
+      )
+      .finally(() => {
+        if (!silent) setLoading(false);
+      });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
@@ -21,7 +45,6 @@ export default function Home() {
     getTracks()
       .then((res) => {
         if (cancelled) return;
-        // Only show completed digests; generating tracks are not shown in this window
         setFiles(
           res.items
             .filter((t) => t.status === 'done')
@@ -39,6 +62,14 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  // Refresh playlist periodically in the background (no loading spinner).
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      refreshPlaylist(true);
+    }, PLAYLIST_REFRESH_INTERVAL_MS);
+    return () => clearInterval(intervalId);
+  }, [refreshPlaylist]);
 
   const filteredFiles =
     activeTab === 'all'
@@ -64,22 +95,7 @@ export default function Home() {
       prev?.id === trackId ? { ...prev, status: 'progress' } : prev
     );
   };
-  const fetchTracks = () => {
-    setError(null);
-    setLoading(true);
-    getTracks()
-      .then((res) =>
-        setFiles(
-          res.items
-            .filter((t) => t.status === 'done')
-            .map(mapBackendTrackToAudioFile)
-        )
-      )
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : 'Failed to load tracks')
-      )
-      .finally(() => setLoading(false));
-  };
+  const fetchTracks = () => refreshPlaylist(false);
 
   return (
     <div className="px-4 py-6">
