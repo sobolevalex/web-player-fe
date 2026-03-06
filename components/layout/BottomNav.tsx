@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Home, Library, Settings } from "lucide-react";
+import { Library, Music2, Settings } from "lucide-react";
 
 /**
  * Sticky bottom navigation bar. Safe-area padding for notched devices.
@@ -15,18 +15,18 @@ export function BottomNav() {
         <Link
           href="/"
           className="flex flex-col items-center gap-1 text-zinc-600 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
-          aria-label="Home"
+          aria-label="Player"
         >
-          <Home className="h-6 w-6" aria-hidden />
-          <span className="text-xs">Home</span>
+          <Music2 className="h-6 w-6" aria-hidden />
+          <span className="text-xs">Player</span>
         </Link>
         <Link
           href="/"
           className="flex flex-col items-center gap-1 text-zinc-600 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
-          aria-label="Playlist"
+          aria-label="Library"
         >
           <Library className="h-6 w-6" aria-hidden />
-          <span className="text-xs">Playlist</span>
+          <span className="text-xs">Library</span>
         </Link>
         <Link
           href="#"

@@ -117,7 +117,7 @@ export function mapBackendTrackToAudioFile(backendTrack: BackendTrack): AudioFil
   return {
     id: String(backendTrack.id),
     title: backendTrack.title,
-    channel_name: backendTrack.channel_name,
+    channel_name: backendTrack.channel_name ?? "Unknown channel",
     file_url: resolveTrackFileUrl(backendTrack.file_url),
     status,
   };

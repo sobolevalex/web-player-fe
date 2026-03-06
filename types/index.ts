@@ -4,7 +4,7 @@
 export type AudioFileStatus = "new" | "progress" | "played";
 
 /**
- * Represents a single audio file in a TeleDigest playlist.
+ * Represents a single audio file in a TeleDigest player.
  */
 export interface AudioFile {
   id: string;

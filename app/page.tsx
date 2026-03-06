@@ -6,11 +6,14 @@ import type { AudioFile } from '@/types';
 import AudioCard from '@/components/ui/AudioCard';
 import MiniPlayer from '@/components/layout/MiniPlayer';
 
-/** How often to refresh the playlist in the background (ms). */
+/** How often to refresh the track list in the background (ms). */
 const PLAYLIST_REFRESH_INTERVAL_MS = 15_000;
+
+const ALL_CHANNELS_VALUE = "";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('all');
+  const [selectedChannel, setSelectedChannel] = useState(ALL_CHANNELS_VALUE);
   const [currentTrack, setCurrentTrack] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [files, setFiles] = useState<AudioFile[]>([]);
@@ -63,7 +66,7 @@ export default function Home() {
     };
   }, []);
 
-  // Refresh playlist periodically in the background (no loading spinner).
+  // Refresh track list periodically in the background (no loading spinner).
   useEffect(() => {
     const intervalId = setInterval(() => {
       refreshPlaylist(true);
@@ -71,10 +74,17 @@ export default function Home() {
     return () => clearInterval(intervalId);
   }, [refreshPlaylist]);
 
-  const filteredFiles =
+  const statusFilteredFiles =
     activeTab === 'all'
       ? files
       : files.filter((file) => file.status === activeTab);
+
+  const filteredFiles =
+    selectedChannel === ALL_CHANNELS_VALUE
+      ? statusFilteredFiles
+      : statusFilteredFiles.filter((file) => file.channel_name === selectedChannel);
+
+  const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
   const handleMarkAsPlayed = (trackId: string) => {
     setFiles((prevFiles) =>
@@ -100,7 +110,7 @@ export default function Home() {
   return (
     <div className="px-4 py-6">
       <h1 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
-        Playlist
+        Player
       </h1>
       {error && (
         <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
@@ -117,6 +127,25 @@ export default function Home() {
       {loading && !error && (
         <p className="mb-4 text-sm text-zinc-500">Loading tracks…</p>
       )}
+      <div className="mb-3">
+        <label htmlFor="channel-filter" className="sr-only">
+          Filter by channel
+        </label>
+        <select
+          id="channel-filter"
+          value={selectedChannel}
+          onChange={(e) => setSelectedChannel(e.target.value)}
+          className="w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-50"
+          aria-label="Filter by channel"
+        >
+          <option value={ALL_CHANNELS_VALUE}>All channels</option>
+          {channelNames.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="mb-6 flex space-x-2">
         <button
           onClick={() => setActiveTab('new')}
