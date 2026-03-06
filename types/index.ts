@@ -10,7 +10,8 @@ export interface AudioFile {
   id: string;
   title: string;
   channel_name: string;
-  duration: number;
+  /** Duration in seconds; optional when not provided by API (e.g. backend track). */
+  duration?: number;
   file_url: string;
   status: AudioFileStatus;
 }

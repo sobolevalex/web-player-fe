@@ -1,24 +1,50 @@
 'use client';
 
-import { useState } from 'react';
-import { MOCK_AUDIO_FILES } from '@/lib/mockData';
+import { useState, useEffect } from 'react';
+import { getTracks, mapBackendTrackToAudioFile } from '@/lib/api';
+import type { AudioFile } from '@/types';
 import AudioCard from '@/components/ui/AudioCard';
 import MiniPlayer from '@/components/layout/MiniPlayer';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('all');
-  const [currentTrack, setCurrentTrack] = useState<any | null>(null);
+  const [currentTrack, setCurrentTrack] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [files, setFiles] = useState<AudioFile[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // 1. Кладем наши файлы в состояние, чтобы иметь возможность их изменять
-  const [files, setFiles] = useState(MOCK_AUDIO_FILES);
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    getTracks()
+      .then((res) => {
+        if (cancelled) return;
+        // Only show completed digests; generating tracks are not shown in this window
+        setFiles(
+          res.items
+            .filter((t) => t.status === 'done')
+            .map(mapBackendTrackToAudioFile)
+        );
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setError(err instanceof Error ? err.message : 'Failed to load tracks');
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  // 2. Фильтруем теперь массив `files`, а не MOCK_AUDIO_FILES
-  const filteredFiles = activeTab === 'all'
-    ? files
-    : files.filter((file) => file.status === activeTab);
+  const filteredFiles =
+    activeTab === 'all'
+      ? files
+      : files.filter((file) => file.status === activeTab);
 
-  // 3. Функция, которая будет менять статус трека на 'played'
   const handleMarkAsPlayed = (trackId: string) => {
     setFiles((prevFiles) =>
       prevFiles.map((file) =>
@@ -26,11 +52,55 @@ export default function Home() {
       )
     );
   };
+
+  // "In progress" = user started listening (≥10 s) but hasn't finished
+  const handleMarkAsInProgress = (trackId: string) => {
+    setFiles((prevFiles) =>
+      prevFiles.map((file) =>
+        file.id === trackId ? { ...file, status: 'progress' } : file
+      )
+    );
+    setCurrentTrack((prev) =>
+      prev?.id === trackId ? { ...prev, status: 'progress' } : prev
+    );
+  };
+  const fetchTracks = () => {
+    setError(null);
+    setLoading(true);
+    getTracks()
+      .then((res) =>
+        setFiles(
+          res.items
+            .filter((t) => t.status === 'done')
+            .map(mapBackendTrackToAudioFile)
+        )
+      )
+      .catch((err) =>
+        setError(err instanceof Error ? err.message : 'Failed to load tracks')
+      )
+      .finally(() => setLoading(false));
+  };
+
   return (
     <div className="px-4 py-6">
       <h1 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
         Playlist
       </h1>
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800 dark:border-red-800 dark:bg-red-950/30 dark:text-red-200">
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={fetchTracks}
+            className="mt-2 font-medium underline"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+      {loading && !error && (
+        <p className="mb-4 text-sm text-zinc-500">Loading tracks…</p>
+      )}
       <div className="mb-6 flex space-x-2">
         <button
           onClick={() => setActiveTab('new')}
@@ -89,7 +159,7 @@ export default function Home() {
               onPlayToggle={() => {
                 if (isThisTrackPlaying) {
                   setIsPlaying(false);
-                } else {
+                } else if (file.file_url) {
                   setCurrentTrack(file);
                   setIsPlaying(true);
                 }
@@ -100,9 +170,8 @@ export default function Home() {
           );
         })}
       </ul>
-      {/* If there are no files in the folder, show a message */}
-      {filteredFiles.length === 0 && (
-        <p className="text-center text-zinc-500 mt-8">No files in the folder</p>
+      {!loading && filteredFiles.length === 0 && (
+        <p className="text-center text-zinc-500 mt-8">No tracks yet</p>
       )}
       <MiniPlayer
         track={currentTrack}
@@ -112,9 +181,11 @@ export default function Home() {
           setCurrentTrack(null);
           setIsPlaying(false);
         }}
-        // Передаем функцию смены статуса в плеер
         onMarkAsPlayed={() => {
           if (currentTrack) handleMarkAsPlayed(currentTrack.id);
+        }}
+        onMarkAsInProgress={() => {
+          if (currentTrack) handleMarkAsInProgress(currentTrack.id);
         }}
       />
     </div>

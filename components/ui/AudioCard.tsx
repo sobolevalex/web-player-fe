@@ -6,8 +6,9 @@ interface AudioCardProps {
         id: string;
         title: string;
         channel_name: string;
-        duration: number;
+        duration?: number;
         status: string;
+        file_url?: string;
     };
     isActiveTrack: boolean;
     isThisTrackPlaying: boolean;
@@ -36,7 +37,7 @@ export default function AudioCard({
                     {file.title}
                 </p>
                 <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
-                    {file.channel_name} · {Math.floor(file.duration / 60)} min
+                    {file.channel_name} · {file.duration != null ? `${Math.floor(file.duration / 60)} min` : '— min'}
                 </p>
                 <span className="mt-1 inline-block text-xs capitalize text-zinc-400 dark:text-zinc-500">
                     {file.status}
@@ -46,9 +47,10 @@ export default function AudioCard({
             {/* Правая часть: Кнопки */}
             <div className="flex shrink-0 items-center space-x-2">
                 <button
-                    onClick={onPlayToggle} // Вызываем функцию, которую нам передал родитель
-                    className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-900 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
-                    aria-label="Play or Pause"
+                    onClick={onPlayToggle}
+                    disabled={!file.file_url}
+                    className="flex h-10 w-10 items-center justify-center rounded-full border border-zinc-200 bg-zinc-50 text-zinc-900 transition-colors hover:bg-zinc-100 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-white dark:hover:bg-zinc-700"
+                    aria-label={file.file_url ? 'Play or Pause' : 'Track not ready'}
                 >
                     {isThisTrackPlaying ? (
                         <Pause size={18} fill="currentColor" />
