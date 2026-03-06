@@ -17,7 +17,7 @@ export interface BackendTrack {
   messages_start_at: string | null;
   messages_end_at: string | null;
   digest_created_at: string | null;
-  channels_used: unknown[] | null;
+  channels_used: string[] | null;
   transcript_url: string | null;
 }
 
@@ -31,6 +31,54 @@ export interface TracksResponse {
 }
 
 /**
+ * Channel object as returned by GET/POST/PATCH /api/channels.
+ */
+export interface BackendChannel {
+  id: number;
+  username: string;
+  display_name: string | null;
+  message_limit: number | null;
+  sort_order: number;
+  message_selection_mode: "last_n" | "since_last_digest";
+}
+
+/**
+ * Payload for POST /api/channels (only username required).
+ */
+export interface CreateChannelPayload {
+  username: string;
+  display_name?: string | null;
+  message_limit?: number | null;
+  sort_order?: number;
+  message_selection_mode?: "last_n" | "since_last_digest" | null;
+}
+
+/**
+ * Payload for PATCH /api/channels/{channel_id} (all fields optional).
+ */
+export interface UpdateChannelPayload {
+  username?: string | null;
+  display_name?: string | null;
+  message_limit?: number | null;
+  sort_order?: number | null;
+  message_selection_mode?: "last_n" | "since_last_digest" | null;
+}
+
+/**
+ * Response shape of POST /api/generate.
+ */
+export interface GenerateResponse {
+  track_id: number;
+}
+
+/**
+ * Response shape of GET /api/telegram/channels.
+ */
+export interface TelegramChannelsResponse {
+  channels: Array<{ id?: unknown; title?: string; username?: string; [key: string]: unknown }>;
+}
+
+/**
  * Resolves track file URL: prepends API base URL when path is relative.
  * Returns empty string when fileUrl is null (e.g. track still in progress).
  */
@@ -40,6 +88,18 @@ export function resolveTrackFileUrl(fileUrl: string | null): string {
     return `${API_BASE_URL}${fileUrl}`;
   }
   return fileUrl;
+}
+
+/**
+ * Resolves transcript URL: prepends API base URL when path is relative.
+ * Returns empty string when transcriptUrl is null.
+ */
+export function resolveTranscriptUrl(transcriptUrl: string | null): string {
+  if (transcriptUrl == null || transcriptUrl === "") return "";
+  if (transcriptUrl.startsWith("/")) {
+    return `${API_BASE_URL}${transcriptUrl}`;
+  }
+  return transcriptUrl;
 }
 
 /**
@@ -80,4 +140,111 @@ export async function getTracks(
     throw new Error(`Tracks request failed: ${response.status} ${response.statusText}`);
   }
   return response.json() as Promise<TracksResponse>;
+}
+
+// --- Channels ---
+
+/**
+ * Fetches all channels (ordered by sort_order then id).
+ */
+export async function getChannels(): Promise<BackendChannel[]> {
+  const response = await fetch(`${API_BASE_URL}/api/channels`);
+  if (!response.ok) {
+    throw new Error(`Channels request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<BackendChannel[]>;
+}
+
+/**
+ * Fetches a single channel by ID. Throws if 404.
+ */
+export async function getChannel(channelId: number): Promise<BackendChannel> {
+  const response = await fetch(`${API_BASE_URL}/api/channels/${channelId}`);
+  if (!response.ok) {
+    if (response.status === 404) throw new Error("Channel not found");
+    throw new Error(`Channel request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<BackendChannel>;
+}
+
+/**
+ * Creates a new channel. 400 if username missing/empty; 409 if username already exists.
+ */
+export async function createChannel(payload: CreateChannelPayload): Promise<BackendChannel> {
+  const response = await fetch(`${API_BASE_URL}/api/channels`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || `Create channel failed: ${response.status}`);
+  }
+  return response.json() as Promise<BackendChannel>;
+}
+
+/**
+ * Updates a channel by ID. Only provided fields are updated. 404 if not found; 409 if username conflict.
+ */
+export async function updateChannel(
+  channelId: number,
+  payload: UpdateChannelPayload
+): Promise<BackendChannel> {
+  const response = await fetch(`${API_BASE_URL}/api/channels/${channelId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    if (response.status === 404) throw new Error("Channel not found");
+    const msg = await response.text();
+    throw new Error(msg || `Update channel failed: ${response.status}`);
+  }
+  return response.json() as Promise<BackendChannel>;
+}
+
+/**
+ * Deletes a channel by ID. 404 if not found.
+ */
+export async function deleteChannel(channelId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/channels/${channelId}`, {
+    method: "DELETE",
+  });
+  if (!response.ok) {
+    if (response.status === 404) throw new Error("Channel not found");
+    throw new Error(`Delete channel failed: ${response.status} ${response.statusText}`);
+  }
+}
+
+// --- Telegram ---
+
+/**
+ * Returns Telegram channels the configured account has access to. 502 on Telegram error; 503 if not configured.
+ */
+export async function getTelegramChannels(): Promise<TelegramChannelsResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/telegram/channels`);
+  if (!response.ok) {
+    throw new Error(`Telegram channels request failed: ${response.status} ${response.statusText}`);
+  }
+  return response.json() as Promise<TelegramChannelsResponse>;
+}
+
+// --- Generate ---
+
+/**
+ * Starts digest generation (background). Optional channel_id for single-channel digest; omit for full digest.
+ * Returns track_id; poll GET /api/tracks or track resource for status and file_url.
+ * 400 if no channels / digest not possible; 404 if channel_id given but not found.
+ */
+export async function generateDigest(channelId?: number | null): Promise<GenerateResponse> {
+  const response = await fetch(`${API_BASE_URL}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(channelId != null ? { channel_id: channelId } : {}),
+  });
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || `Generate failed: ${response.status}`);
+  }
+  return response.json() as Promise<GenerateResponse>;
 }
