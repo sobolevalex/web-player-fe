@@ -15,7 +15,7 @@ const TRACKS_REQUEST_TIMEOUT_MS = 15_000;
 const ALL_CHANNELS_VALUE = "";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('new');
   const [selectedChannel, setSelectedChannel] = useState(ALL_CHANNELS_VALUE);
   const [currentTrack, setCurrentTrack] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -106,6 +106,9 @@ export default function Home() {
       ? statusFilteredFiles
       : statusFilteredFiles.filter((file) => file.channel_name === selectedChannel);
 
+  // Presentation order: oldest to newest (backend returns newest first, so we reverse for display).
+  const filesToShow = [...filteredFiles].reverse();
+
   const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
   const handleMarkAsPlayed = (trackId: string) => {
@@ -190,7 +193,7 @@ export default function Home() {
         </button>
       </div>
       <ul className="space-y-3 pb-24" role="list">
-        {filteredFiles.map((file) => {
+        {filesToShow.map((file) => {
           const isActiveTrack = currentTrack?.id === file.id;
           const isThisTrackPlaying = isActiveTrack && isPlaying;
 
@@ -216,7 +219,7 @@ export default function Home() {
           );
         })}
       </ul>
-      {!loading && filteredFiles.length === 0 && (
+      {!loading && filesToShow.length === 0 && (
         <p className="text-center text-zinc-500 mt-8">No tracks yet</p>
       )}
       <MiniPlayer
