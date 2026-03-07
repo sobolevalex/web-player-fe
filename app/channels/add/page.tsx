@@ -49,6 +49,7 @@ export default function ManageChannelsPage() {
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [channelFilter, setChannelFilter] = useState<'all' | 'added' | 'not_added'>('all');
 
   const fetchData = useCallback((forceRefresh = false) => {
     setError(null);
@@ -139,6 +140,15 @@ export default function ManageChannelsPage() {
     return u.trim().replace(/^@/, '') || null;
   };
 
+  const filteredChannels = telegramChannels.filter((item) => {
+    const username = normalizedUsername(item);
+    const usernameLower = username?.toLowerCase() ?? '';
+    const isAdded = username ? existingByUsername.has(usernameLower) : false;
+    if (channelFilter === 'all') return true;
+    if (channelFilter === 'added') return isAdded;
+    return !isAdded;
+  });
+
   return (
     <div className="px-4 py-6 pb-24">
       <div className="mb-4 flex items-center gap-2">
@@ -182,9 +192,27 @@ export default function ManageChannelsPage() {
       {loading && !error && (
         <p className="text-sm text-zinc-500">Loading Telegram channels…</p>
       )}
+      {!loading && !error && telegramChannels.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(['all', 'added', 'not_added'] as const).map((filter) => (
+            <button
+              key={filter}
+              type="button"
+              onClick={() => setChannelFilter(filter)}
+              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                channelFilter === filter
+                  ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
+                  : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700'
+              }`}
+            >
+              {filter === 'all' ? 'All channels' : filter === 'added' ? 'Added' : 'Not added'}
+            </button>
+          ))}
+        </div>
+      )}
       {!loading && !error && (
         <ul className="space-y-2" role="list">
-          {telegramChannels.map((item, index) => {
+          {filteredChannels.map((item, index) => {
             const title = typeof item.title === 'string' ? item.title : 'Unknown';
             const username = normalizedUsername(item);
             const usernameLower = username?.toLowerCase() ?? '';
@@ -238,6 +266,9 @@ export default function ManageChannelsPage() {
       )}
       {!loading && !error && telegramChannels.length === 0 && (
         <p className="text-zinc-500">No Telegram channels found or Telegram is not configured.</p>
+      )}
+      {!loading && !error && telegramChannels.length > 0 && filteredChannels.length === 0 && (
+        <p className="text-zinc-500">No channels match this filter.</p>
       )}
     </div>
   );
