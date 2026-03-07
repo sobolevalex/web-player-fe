@@ -40,15 +40,18 @@ export default function ChannelCard({
   generateError,
   onGenerate,
 }: ChannelCardProps) {
-  const name = channel.display_name ?? channel.username;
+  const displayName = channel.display_name ?? channel.username;
   return (
     <li
       className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800"
     >
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
-          <p className="font-medium text-zinc-900 dark:text-zinc-50">
-            {name}
+          <p className="font-medium text-zinc-900 dark:text-zinc-50 truncate">
+            {displayName}
+          </p>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            @{channel.username}
           </p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
             Last digest: {formatLastDigest(channel.last_digest_message_at)}
