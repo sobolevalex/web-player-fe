@@ -9,6 +9,9 @@ import MiniPlayer from '@/components/layout/MiniPlayer';
 /** How often to refresh the track list in the background (ms). */
 const PLAYLIST_REFRESH_INTERVAL_MS = 15_000;
 
+/** Timeout for initial tracks request so we don't hang if backend is unreachable (ms). */
+const TRACKS_REQUEST_TIMEOUT_MS = 15_000;
+
 const ALL_CHANNELS_VALUE = "";
 
 export default function Home() {
@@ -39,15 +42,30 @@ export default function Home() {
           );
         });
       })
-      .catch(/* keep same */)
-      .finally(/* keep same */);
+      .catch((err) => {
+        if (!silent) {
+          setError(err instanceof Error ? err.message : 'Failed to load tracks');
+        }
+      })
+      .finally(() => {
+        if (!silent) {
+          setLoading(false);
+        }
+      });
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     setLoading(true);
     setError(null);
-    getTracks()
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Request timed out. Is the backend running?')),
+        TRACKS_REQUEST_TIMEOUT_MS
+      );
+    });
+    Promise.race([getTracks(), timeoutPromise])
       .then((res) => {
         if (cancelled) return;
         setFiles(
@@ -61,10 +79,12 @@ export default function Home() {
         setError(err instanceof Error ? err.message : 'Failed to load tracks');
       })
       .finally(() => {
+        if (timeoutId != null) clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      if (timeoutId != null) clearTimeout(timeoutId);
     };
   }, []);
 

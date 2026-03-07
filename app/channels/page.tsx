@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-import { getChannels, generateDigest } from '@/lib/api';
+import { getChannels, generateDigest, getTracks } from '@/lib/api';
 import type { BackendChannel } from '@/lib/api';
+
+/** Poll interval while waiting for a track to finish generating (ms). */
+const GENERATING_POLL_MS = 5000;
 
 /** Format ISO 8601 date as relative time (e.g. "2 days ago") or short absolute date. */
 function formatLastDigest(iso: string | null): string {
@@ -32,8 +35,11 @@ export default function ChannelsPage() {
   const [channels, setChannels] = useState<BackendChannel[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [generatingId, setGeneratingId] = useState<number | null>(null);
-  const [generateMessage, setGenerateMessage] = useState<string | null>(null);
+  const [generatingChannelId, setGeneratingChannelId] = useState<number | null>(null);
+  const [generatingTrackId, setGeneratingTrackId] = useState<number | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [errorChannelId, setErrorChannelId] = useState<number | null>(null);
+  const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchChannels = useCallback((silent = false) => {
     if (!silent) {
@@ -56,18 +62,46 @@ export default function ChannelsPage() {
     fetchChannels();
   }, [fetchChannels]);
 
+  // Poll track status until generation completes; then clear generating state.
+  useEffect(() => {
+    if (generatingTrackId == null) return;
+    const checkTrack = () => {
+      getTracks(50)
+        .then((res) => {
+          const track = res.items.find((t) => t.id === generatingTrackId);
+          if (track && track.status !== 'progress') {
+            setGeneratingChannelId(null);
+            setGeneratingTrackId(null);
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }
+        })
+        .catch(() => {});
+    };
+    pollIntervalRef.current = setInterval(checkTrack, GENERATING_POLL_MS);
+    checkTrack();
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
+  }, [generatingTrackId]);
+
   const handleGenerate = (channel: BackendChannel) => {
-    setGeneratingId(channel.id);
-    setGenerateMessage(null);
+    setGeneratingChannelId(channel.id);
+    setGenerateError(null);
+    setErrorChannelId(null);
     generateDigest(channel.id)
-      .then(() => {
-        setGenerateMessage('Generating… Check Player for the new track.');
+      .then((res) => {
+        setGeneratingTrackId(res.track_id);
       })
       .catch((err) => {
-        setGenerateMessage(err instanceof Error ? err.message : 'Generate failed');
-      })
-      .finally(() => {
-        setGeneratingId(null);
+        setGenerateError(err instanceof Error ? err.message : 'Generate failed');
+        setErrorChannelId(channel.id);
+        setGeneratingChannelId(null);
       });
   };
 
@@ -96,16 +130,12 @@ export default function ChannelsPage() {
           No channels yet. <Link href="/channels/add" className="font-medium underline">Manage channels</Link>
         </p>
       )}
-      {generateMessage && (
-        <div className="mb-4 rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-800 dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-200">
-          {generateMessage}
-        </div>
-      )}
       {!loading && channels.length > 0 && (
         <ul className="space-y-3" role="list">
           {channels.map((channel) => {
             const name = channel.display_name ?? channel.username;
-            const isGenerating = generatingId === channel.id;
+            const isGenerating = generatingChannelId === channel.id;
+            const showError = generateError && errorChannelId === channel.id;
             return (
               <li
                 key={channel.id}
@@ -122,6 +152,16 @@ export default function ChannelsPage() {
                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
                       {modeLabel(channel)}
                     </p>
+                    {isGenerating && (
+                      <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        Generating digest… Check Player for the new track when ready.
+                      </p>
+                    )}
+                    {showError && (
+                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                        {generateError}
+                      </p>
+                    )}
                   </div>
                   <button
                     type="button"
