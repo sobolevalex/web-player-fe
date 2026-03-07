@@ -2,7 +2,7 @@
 
 import type { BackendChannel } from '@/lib/api';
 
-/** Format ISO 8601 date as relative time (e.g. "2 days ago") or short absolute date. */
+/** Format ISO 8601 date: real time for today, relative/date for yesterday and older. */
 function formatLastDigest(iso: string | null): string {
   if (iso == null) return 'Never';
   const date = new Date(iso);
@@ -10,7 +10,9 @@ function formatLastDigest(iso: string | null): string {
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-  if (diffDays === 0) return 'Today';
+  if (diffDays === 0) {
+    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  }
   if (diffDays === 1) return 'Yesterday';
   if (diffDays < 7) return `${diffDays} days ago`;
   return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
