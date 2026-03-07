@@ -40,6 +40,8 @@ export interface BackendChannel {
   message_limit: number | null;
   sort_order: number;
   message_selection_mode: "last_n" | "since_last_digest";
+  /** ISO 8601 UTC datetime of last message in a digest for this channel; null if never digested. */
+  last_digest_message_at: string | null;
 }
 
 /**

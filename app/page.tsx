@@ -9,10 +9,13 @@ import MiniPlayer from '@/components/layout/MiniPlayer';
 /** How often to refresh the track list in the background (ms). */
 const PLAYLIST_REFRESH_INTERVAL_MS = 15_000;
 
+/** Timeout for initial tracks request so we don't hang if backend is unreachable (ms). */
+const TRACKS_REQUEST_TIMEOUT_MS = 15_000;
+
 const ALL_CHANNELS_VALUE = "";
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState('all');
+  const [activeTab, setActiveTab] = useState('new');
   const [selectedChannel, setSelectedChannel] = useState(ALL_CHANNELS_VALUE);
   const [currentTrack, setCurrentTrack] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -39,15 +42,30 @@ export default function Home() {
           );
         });
       })
-      .catch(/* keep same */)
-      .finally(/* keep same */);
+      .catch((err) => {
+        if (!silent) {
+          setError(err instanceof Error ? err.message : 'Failed to load tracks');
+        }
+      })
+      .finally(() => {
+        if (!silent) {
+          setLoading(false);
+        }
+      });
   }, []);
 
   useEffect(() => {
     let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     setLoading(true);
     setError(null);
-    getTracks()
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(
+        () => reject(new Error('Request timed out. Is the backend running?')),
+        TRACKS_REQUEST_TIMEOUT_MS
+      );
+    });
+    Promise.race([getTracks(), timeoutPromise])
       .then((res) => {
         if (cancelled) return;
         setFiles(
@@ -61,10 +79,12 @@ export default function Home() {
         setError(err instanceof Error ? err.message : 'Failed to load tracks');
       })
       .finally(() => {
+        if (timeoutId != null) clearTimeout(timeoutId);
         if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
+      if (timeoutId != null) clearTimeout(timeoutId);
     };
   }, []);
 
@@ -85,6 +105,9 @@ export default function Home() {
     selectedChannel === ALL_CHANNELS_VALUE
       ? statusFilteredFiles
       : statusFilteredFiles.filter((file) => file.channel_name === selectedChannel);
+
+  // Presentation order: oldest to newest (backend returns newest first, so we reverse for display).
+  const filesToShow = [...filteredFiles].reverse();
 
   const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
@@ -170,7 +193,7 @@ export default function Home() {
         </button>
       </div>
       <ul className="space-y-3 pb-24" role="list">
-        {filteredFiles.map((file) => {
+        {filesToShow.map((file) => {
           const isActiveTrack = currentTrack?.id === file.id;
           const isThisTrackPlaying = isActiveTrack && isPlaying;
 
@@ -196,7 +219,7 @@ export default function Home() {
           );
         })}
       </ul>
-      {!loading && filteredFiles.length === 0 && (
+      {!loading && filesToShow.length === 0 && (
         <p className="text-center text-zinc-500 mt-8">No tracks yet</p>
       )}
       <MiniPlayer
