@@ -109,6 +109,12 @@ export default function Home() {
   // Presentation order: oldest to newest (backend returns newest first, so we reverse for display).
   const filesToShow = [...filteredFiles].reverse();
 
+  /** Same order as display but only filtered by channel (not by status). Used for auto-advance so we can find next track even after current is marked played and drops out of filesToShow. */
+  const advancePlaylist =
+    selectedChannel === ALL_CHANNELS_VALUE
+      ? [...files].reverse()
+      : [...files.filter((f) => f.channel_name === selectedChannel)].reverse();
+
   const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
   const handleMarkAsPlayed = (trackId: string) => {
@@ -118,6 +124,23 @@ export default function Home() {
       )
     );
   };
+
+  /** Auto-advance to next track. Uses advancePlaylist (channel-only) so current track is still findable after it is marked played. */
+  const handleTrackEnded = useCallback(() => {
+    if (!currentTrack) return;
+    const currentIndex = advancePlaylist.findIndex((f) => f.id === currentTrack.id);
+    const nextFile =
+      currentIndex >= 0 && currentIndex < advancePlaylist.length - 1
+        ? advancePlaylist[currentIndex + 1]
+        : null;
+    if (nextFile?.file_url) {
+      setCurrentTrack(nextFile);
+      setIsPlaying(true);
+    } else {
+      setCurrentTrack(null);
+      setIsPlaying(false);
+    }
+  }, [currentTrack, advancePlaylist]);
 
   const fetchTracks = () => refreshPlaylist(false);
 
@@ -233,6 +256,7 @@ export default function Home() {
         onMarkAsPlayed={() => {
           if (currentTrack) handleMarkAsPlayed(currentTrack.id);
         }}
+        onTrackEnded={handleTrackEnded}
       />
     </div>
   );

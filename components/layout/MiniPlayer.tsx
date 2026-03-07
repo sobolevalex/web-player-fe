@@ -15,6 +15,8 @@ interface MiniPlayerProps {
     onPlayPause: () => void;
     onClose: () => void;
     onMarkAsPlayed: () => void;
+    /** When the track finishes. If set, auto-continue is handled by parent (e.g. play next). */
+    onTrackEnded?: () => void;
 }
 
 // Вспомогательная функция для форматирования времени (секунды -> 00:00)
@@ -25,7 +27,7 @@ const formatTime = (time: number) => {
     return `${m}:${s}`;
 };
 
-export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onMarkAsPlayed }: MiniPlayerProps) {
+export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onMarkAsPlayed, onTrackEnded }: MiniPlayerProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
 
     const [progress, setProgress] = useState(0);
@@ -111,9 +113,12 @@ export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onM
                 onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
                 onEnded={() => {
                     setProgress(0);
-                    onPlayPause();
-                    // Очищаем память, когда трек закончился
                     localStorage.removeItem(`teledigest_time_${track.id}`);
+                    if (onTrackEnded) {
+                        onTrackEnded();
+                    } else {
+                        onPlayPause();
+                    }
                 }}
             />
 
