@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Library, Music2, Settings } from "lucide-react";
+import { Music2, Radio, Settings } from "lucide-react";
 
 /**
  * Sticky bottom navigation bar. Safe-area padding for notched devices.
@@ -21,12 +21,12 @@ export function BottomNav() {
           <span className="text-xs">Player</span>
         </Link>
         <Link
-          href="/"
+          href="/channels"
           className="flex flex-col items-center gap-1 text-zinc-600 transition-colors hover:text-zinc-950 dark:text-zinc-400 dark:hover:text-zinc-50"
-          aria-label="Library"
+          aria-label="Channels"
         >
-          <Library className="h-6 w-6" aria-hidden />
-          <span className="text-xs">Library</span>
+          <Radio className="h-6 w-6" aria-hidden />
+          <span className="text-xs">Channels</span>
         </Link>
         <Link
           href="#"
