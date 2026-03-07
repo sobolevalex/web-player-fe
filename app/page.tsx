@@ -26,19 +26,21 @@ export default function Home() {
       setLoading(true);
     }
     getTracks()
-      .then((res) =>
-        setFiles(
-          res.items
-            .filter((t) => t.status === 'done')
-            .map(mapBackendTrackToAudioFile)
-        )
-      )
-      .catch((err) =>
-        setError(err instanceof Error ? err.message : 'Failed to load tracks')
-      )
-      .finally(() => {
-        if (!silent) setLoading(false);
-      });
+      .then((res) => {
+        const newItems = res.items
+          .filter((t) => t.status === 'done')
+          .map(mapBackendTrackToAudioFile);
+        setFiles((prevFiles) => {
+          const playedIds = new Set(
+            prevFiles.filter((f) => f.status === 'played').map((f) => f.id)
+          );
+          return newItems.map((file) =>
+            playedIds.has(file.id) ? { ...file, status: 'played' as const } : file
+          );
+        });
+      })
+      .catch(/* keep same */)
+      .finally(/* keep same */);
   }, []);
 
   useEffect(() => {
