@@ -49,7 +49,7 @@ export default function ManageChannelsPage() {
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [addError, setAddError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [channelFilter, setChannelFilter] = useState<'all' | 'added' | 'not_added'>('all');
+  const [channelFilter, setChannelFilter] = useState<'all' | 'added' | 'not_added'>('added');
 
   const fetchData = useCallback((forceRefresh = false) => {
     setError(null);
@@ -194,7 +194,7 @@ export default function ManageChannelsPage() {
       )}
       {!loading && !error && telegramChannels.length > 0 && (
         <div className="mb-3 flex flex-wrap gap-2">
-          {(['all', 'added', 'not_added'] as const).map((filter) => (
+          {(['added', 'not_added', 'all'] as const).map((filter) => (
             <button
               key={filter}
               type="button"
