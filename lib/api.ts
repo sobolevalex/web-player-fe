@@ -80,7 +80,7 @@ export interface TelegramChannelsResponse {
 
 /**
  * Resolves track file URL: prepends API base URL when path is relative.
- * Returns empty string when fileUrl is null (e.g. track still in progress).
+ * Returns empty string when fileUrl is null (e.g. track still processing).
  */
 export function resolveTrackFileUrl(fileUrl: string | null): string {
   if (fileUrl == null || fileUrl === "") return "";
@@ -104,16 +104,12 @@ export function resolveTranscriptUrl(transcriptUrl: string | null): string {
 
 /**
  * Maps a backend track to the frontend AudioFile shape.
- * - id as string; status "done" -> "new", "progress" -> "progress"; "played" is client-only.
+ * - id as string; status "done" or "progress" -> "new"; "played" is client-only.
  * - file_url resolved to full URL; duration omitted (optional in AudioFile).
  */
 export function mapBackendTrackToAudioFile(backendTrack: BackendTrack): AudioFile {
-  const status =
-    backendTrack.status === "done"
-      ? "new"
-      : backendTrack.status === "progress"
-        ? "progress"
-        : "new";
+  // Backend "done" and "progress" both map to "new"; "played" is client-only.
+  const status: AudioFile["status"] = "new";
   return {
     id: String(backendTrack.id),
     title: backendTrack.title,

@@ -94,17 +94,6 @@ export default function Home() {
     );
   };
 
-  // "In progress" = user started listening (≥10 s) but hasn't finished
-  const handleMarkAsInProgress = (trackId: string) => {
-    setFiles((prevFiles) =>
-      prevFiles.map((file) =>
-        file.id === trackId ? { ...file, status: 'progress' } : file
-      )
-    );
-    setCurrentTrack((prev) =>
-      prev?.id === trackId ? { ...prev, status: 'progress' } : prev
-    );
-  };
   const fetchTracks = () => refreshPlaylist(false);
 
   return (
@@ -156,16 +145,6 @@ export default function Home() {
           }`}
         >
           New
-        </button>
-        <button
-          onClick={() => setActiveTab('progress')}
-          className={`px-4 py-2 rounded-full text-sm font-medium ${
-            activeTab === 'progress'
-              ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
-              : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
-          }`}
-        >
-          In Progress
         </button>
         <button
           onClick={() => setActiveTab('played')}
@@ -228,9 +207,6 @@ export default function Home() {
         }}
         onMarkAsPlayed={() => {
           if (currentTrack) handleMarkAsPlayed(currentTrack.id);
-        }}
-        onMarkAsInProgress={() => {
-          if (currentTrack) handleMarkAsInProgress(currentTrack.id);
         }}
       />
     </div>

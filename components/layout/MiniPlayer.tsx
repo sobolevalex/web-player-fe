@@ -15,8 +15,6 @@ interface MiniPlayerProps {
     onPlayPause: () => void;
     onClose: () => void;
     onMarkAsPlayed: () => void;
-    /** Called once when user has listened for ≥10 seconds (marks track as "in progress"). */
-    onMarkAsInProgress: () => void;
 }
 
 // Вспомогательная функция для форматирования времени (секунды -> 00:00)
@@ -27,9 +25,8 @@ const formatTime = (time: number) => {
     return `${m}:${s}`;
 };
 
-export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onMarkAsPlayed, onMarkAsInProgress }: MiniPlayerProps) {
+export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onMarkAsPlayed }: MiniPlayerProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
-    const hasMarkedInProgressRef = useRef(false);
 
     const [progress, setProgress] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
@@ -46,11 +43,6 @@ export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onM
                 audioRef.current.currentTime = 0;
             }
         }
-    }, [track?.id]);
-
-    // Reset "in progress" sentinel when track changes so we can fire again for the new track
-    useEffect(() => {
-        hasMarkedInProgressRef.current = false;
     }, [track?.id]);
 
     // Эффект 2: Управление Play / Pause
@@ -84,12 +76,6 @@ export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onM
 
                 // Сохраняем позицию каждые доли секунды
                 localStorage.setItem(`teledigest_time_${track.id}`, current.toString());
-
-                // После 10 секунд прослушивания — помечаем как "in progress" (начал слушать, не закончил)
-                if (current >= 10 && track.status === 'new' && !hasMarkedInProgressRef.current) {
-                    hasMarkedInProgressRef.current = true;
-                    onMarkAsInProgress();
-                }
 
                 // Если осталось меньше 10 секунд — меняем статус на "Прослушано"
                 if (dur - current <= 10 && track.status !== 'played') {

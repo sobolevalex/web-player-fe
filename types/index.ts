@@ -1,7 +1,7 @@
 /**
  * Playback status for an audio file in the digest.
  */
-export type AudioFileStatus = "new" | "progress" | "played";
+export type AudioFileStatus = "new" | "played";
 
 /**
  * Represents a single audio file in a TeleDigest player.
