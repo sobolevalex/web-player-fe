@@ -118,6 +118,8 @@ export function mapBackendTrackToAudioFile(backendTrack: BackendTrack): AudioFil
     channel_name: backendTrack.channel_name ?? "Unknown channel",
     file_url: resolveTrackFileUrl(backendTrack.file_url),
     status,
+    messages_start_at: backendTrack.messages_start_at ?? null,
+    messages_end_at: backendTrack.messages_end_at ?? null,
   };
 }
 

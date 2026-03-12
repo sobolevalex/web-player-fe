@@ -1,6 +1,6 @@
 import { Play, Pause, MoreVertical } from 'lucide-react';
+import { formatDigestTime } from '@/lib/utils';
 
-// Описываем интерфейс: какие данные (Props) ожидает получить наша карточка от родителя
 interface AudioCardProps {
     file: {
         id: string;
@@ -9,6 +9,8 @@ interface AudioCardProps {
         duration?: number;
         status: string;
         file_url?: string;
+        messages_start_at?: string | null;
+        messages_end_at?: string | null;
     };
     isActiveTrack: boolean;
     isThisTrackPlaying: boolean;
@@ -26,23 +28,32 @@ export default function AudioCard({
     return (
         <li
             className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${isActiveTrack
-                    ? 'border-blue-500 bg-blue-50 dark:border-blue-500/50 dark:bg-blue-900/20' // Цвета для активного трека
-                    : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'         // Обычные цвета
+                    ? 'border-blue-500 bg-blue-50 dark:border-blue-500/50 dark:bg-blue-900/20'
+                    : 'border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900'
                 }`}
         >
 
-            {/* Левая часть: Текст */}
+            {/* Left: channel name, time range, status badge */}
             <div className="flex-1 overflow-hidden pr-4">
                 <p className="truncate font-medium text-zinc-900 dark:text-zinc-50">
-                    {file.title}
-                </p>
-                <p className="truncate text-sm text-zinc-500 dark:text-zinc-400">
                     {file.channel_name}
-                    {file.duration != null && ` · ${Math.floor(file.duration / 60)} min`}
                 </p>
-                <span className="mt-1 inline-block text-xs capitalize text-zinc-400 dark:text-zinc-500">
-                    {file.status}
-                </span>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    From {formatDigestTime(file.messages_start_at)}
+                </p>
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    To {formatDigestTime(file.messages_end_at)}
+                </p>
+                <div className="mt-1 flex items-center gap-2">
+                    <span className="inline-block text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                        {file.status === 'new' ? 'New' : 'Played'}
+                    </span>
+                    {file.duration != null && (
+                        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+                            {Math.floor(file.duration / 60)} min
+                        </span>
+                    )}
+                </div>
             </div>
 
             {/* Правая часть: Кнопки */}

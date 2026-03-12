@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { Play, Pause, X } from 'lucide-react';
+import { formatDigestTime, formatDurationSeconds } from '@/lib/utils';
 
 interface MiniPlayerProps {
     track: {
@@ -10,6 +11,8 @@ interface MiniPlayerProps {
         channel_name: string;
         status: string;
         file_url?: string;
+        messages_start_at?: string | null;
+        messages_end_at?: string | null;
     } | null;
     isPlaying: boolean;
     onPlayPause: () => void;
@@ -18,14 +21,6 @@ interface MiniPlayerProps {
     /** When the track finishes. If set, auto-continue is handled by parent (e.g. play next). */
     onTrackEnded?: () => void;
 }
-
-// Вспомогательная функция для форматирования времени (секунды -> 00:00)
-const formatTime = (time: number) => {
-    if (isNaN(time) || time < 0) return "00:00";
-    const m = Math.floor(time / 60).toString().padStart(2, '0');
-    const s = Math.floor(time % 60).toString().padStart(2, '0');
-    return `${m}:${s}`;
-};
 
 export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onMarkAsPlayed, onTrackEnded }: MiniPlayerProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
@@ -140,18 +135,18 @@ export default function MiniPlayer({ track, isPlaying, onPlayPause, onClose, onM
 
             {/* Таймеры под полоской */}
             <div className="flex justify-between text-[10px] text-zinc-500 font-medium px-1 mb-2">
-                <span>{formatTime(currentTime)}</span>
-                <span>-{formatTime(duration - currentTime)}</span>
+                <span>{formatDurationSeconds(currentTime)}</span>
+                <span>-{formatDurationSeconds(duration - currentTime)}</span>
             </div>
 
             <div className="flex items-center justify-between">
                 {/* Инфо о треке */}
                 <div className="flex flex-col overflow-hidden pr-4 w-1/2">
                     <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                        {track.title}
+                        {track.channel_name}
                     </p>
                     <p className="truncate text-xs text-zinc-500 dark:text-zinc-400">
-                        {track.channel_name}
+                        From {formatDigestTime(track.messages_start_at)} · To {formatDigestTime(track.messages_end_at)}
                     </p>
                 </div>
 

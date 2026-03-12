@@ -1,22 +1,7 @@
 'use client';
 
 import type { BackendChannel } from '@/lib/api';
-
-/** Format ISO 8601 date: real time for today, relative/date for yesterday and older. */
-function formatLastDigest(iso: string | null): string {
-  if (iso == null) return 'Never';
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return 'Never';
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
-  if (diffDays === 0) {
-    return date.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-  }
-  if (diffDays === 1) return 'Yesterday';
-  if (diffDays < 7) return `${diffDays} days ago`;
-  return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-}
+import { formatLastDigest } from '@/lib/utils';
 
 /** Mode label and message count for display. */
 function modeLabel(channel: BackendChannel): string {

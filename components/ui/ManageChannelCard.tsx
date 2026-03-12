@@ -1,17 +1,13 @@
 'use client';
 
+import { normalizeUsername } from '@/lib/utils';
+
 /** Telegram channel shape from API (title, username may be missing). */
 export interface TelegramChannelItem {
   id?: unknown;
   title?: string;
   username?: string;
   [key: string]: unknown;
-}
-
-function normalizedUsername(item: TelegramChannelItem): string | null {
-  const u = item.username;
-  if (typeof u !== 'string') return null;
-  return u.trim().replace(/^@/, '') || null;
 }
 
 export interface ManageChannelCardProps {
@@ -34,7 +30,7 @@ export default function ManageChannelCard({
   onRemove,
 }: ManageChannelCardProps) {
   const title = typeof item.title === 'string' ? item.title : 'Unknown';
-  const username = normalizedUsername(item);
+  const username = normalizeUsername(item.username);
   const usernameLower = username?.toLowerCase() ?? '';
   const isAdded = existingId !== undefined;
 
