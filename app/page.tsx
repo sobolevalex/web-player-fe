@@ -131,6 +131,14 @@ export default function Home() {
     );
   }, []);
 
+  const handleMarkAsNew = useCallback((trackId: string) => {
+    setFiles((prevFiles) =>
+      prevFiles.map((file) =>
+        file.id === trackId ? { ...file, status: 'new' } : file
+      )
+    );
+  }, []);
+
   /** Auto-advance to next track. Uses advancePlaylist (channel-only) so current track is still findable after it is marked played. */
   const handleTrackEnded = useCallback(() => {
     if (!currentTrack) return;
@@ -252,8 +260,8 @@ export default function Home() {
                   setIsPlaying(true);
                 }
               }}
-              // Передаем логику для меню опций
-              onOptionsClick={() => alert(`Опции для: ${file.title}`)}
+              onMarkAsPlayed={() => handleMarkAsPlayed(file.id)}
+              onMarkAsNew={() => handleMarkAsNew(file.id)}
             />
           );
         })}

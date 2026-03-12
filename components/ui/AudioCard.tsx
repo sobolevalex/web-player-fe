@@ -1,3 +1,6 @@
+'use client';
+
+import { useState, useRef, useEffect } from 'react';
 import { Play, Pause, MoreVertical } from 'lucide-react';
 import { formatDigestTime } from '@/lib/utils';
 
@@ -15,7 +18,8 @@ interface AudioCardProps {
     isActiveTrack: boolean;
     isThisTrackPlaying: boolean;
     onPlayToggle: () => void;
-    onOptionsClick: () => void;
+    onMarkAsPlayed: () => void;
+    onMarkAsNew: () => void;
 }
 
 export default function AudioCard({
@@ -23,8 +27,34 @@ export default function AudioCard({
     isActiveTrack,
     isThisTrackPlaying,
     onPlayToggle,
-    onOptionsClick,
+    onMarkAsPlayed,
+    onMarkAsNew,
 }: AudioCardProps) {
+    const [menuOpen, setMenuOpen] = useState(false);
+    const menuRef = useRef<HTMLDivElement>(null);
+
+    // Close menu when clicking outside
+    useEffect(() => {
+        if (!menuOpen) return;
+        const handleClickOutside = (e: MouseEvent) => {
+            if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+                setMenuOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [menuOpen]);
+
+    const isNew = file.status === 'new';
+    const handleMenuAction = () => {
+        if (isNew) {
+            onMarkAsPlayed();
+        } else {
+            onMarkAsNew();
+        }
+        setMenuOpen(false);
+    };
+
     return (
         <li
             className={`flex items-center justify-between rounded-lg border p-3 transition-colors ${isActiveTrack
@@ -73,13 +103,32 @@ export default function AudioCard({
 
                 <div className="h-8 w-[1px] bg-zinc-200 dark:bg-zinc-700"></div>
 
-                <button
-                    onClick={onOptionsClick} // Вызываем вторую переданную функцию
-                    className="flex h-10 w-8 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
-                    aria-label="More options"
-                >
-                    <MoreVertical size={20} />
-                </button>
+                <div className="relative" ref={menuRef}>
+                    <button
+                        onClick={() => setMenuOpen((open) => !open)}
+                        className="flex h-10 w-8 items-center justify-center text-zinc-400 transition-colors hover:text-zinc-600 dark:hover:text-zinc-300"
+                        aria-label="More options"
+                        aria-expanded={menuOpen}
+                        aria-haspopup="true"
+                    >
+                        <MoreVertical size={20} />
+                    </button>
+                    {menuOpen && (
+                        <div
+                            className="absolute right-0 top-full z-10 mt-1 min-w-[140px] rounded-lg border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-800"
+                            role="menu"
+                        >
+                            <button
+                                type="button"
+                                role="menuitem"
+                                onClick={handleMenuAction}
+                                className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
+                            >
+                                {isNew ? 'Mark as played' : 'Mark as new'}
+                            </button>
+                        </div>
+                    )}
+                </div>
             </div>
         </li>
     );
