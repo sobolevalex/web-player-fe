@@ -144,9 +144,12 @@ export async function getTracks(
 
 /**
  * Fetches all channels (ordered by sort_order then id).
+ * Uses no-store so newly added channels appear immediately (no browser cache).
  */
 export async function getChannels(): Promise<BackendChannel[]> {
-  const response = await fetch(`${API_BASE_URL}/api/channels`);
+  const response = await fetch(`${API_BASE_URL}/api/channels`, {
+    cache: "no-store",
+  });
   if (!response.ok) {
     throw new Error(`Channels request failed: ${response.status} ${response.statusText}`);
   }

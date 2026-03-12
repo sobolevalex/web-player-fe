@@ -40,6 +40,13 @@ export default function ChannelsPage() {
     fetchChannels();
   }, [fetchChannels]);
 
+  // Refetch when user returns to this page (e.g. after adding a channel on /channels/add)
+  useEffect(() => {
+    const onFocus = () => fetchChannels(true);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [fetchChannels]);
+
   // Poll track status until generation completes; then clear generating state.
   useEffect(() => {
     if (generatingTrackId == null) return;
