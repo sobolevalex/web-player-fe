@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { getTracks, mapBackendTrackToAudioFile } from '@/lib/api';
+import {
+  getPlayedTrackIds,
+  addPlayedTrackId,
+  removePlayedTrackId,
+} from '@/lib/played-storage';
 import type { AudioFile } from '@/types';
 import AudioCard from '@/components/ui/AudioCard';
 import { usePlayer } from '@/contexts/PlayerContext';
@@ -39,10 +44,12 @@ export default function Home() {
         const newItems = res.items
           .filter((t) => t.status === 'done')
           .map(mapBackendTrackToAudioFile);
+        const persistedPlayed = getPlayedTrackIds();
         setFiles((prevFiles) => {
-          const playedIds = new Set(
-            prevFiles.filter((f) => f.status === 'played').map((f) => f.id)
-          );
+          const playedIds = new Set(persistedPlayed);
+          prevFiles
+            .filter((f) => f.status === 'played')
+            .forEach((f) => playedIds.add(f.id));
           return newItems.map((file) =>
             playedIds.has(file.id) ? { ...file, status: 'played' as const } : file
           );
@@ -74,11 +81,14 @@ export default function Home() {
     Promise.race([getTracks(), timeoutPromise])
       .then((res) => {
         if (cancelled) return;
-        setFiles(
-          res.items
-            .filter((t) => t.status === 'done')
-            .map(mapBackendTrackToAudioFile)
-        );
+        const playedIds = getPlayedTrackIds();
+        const mapped = res.items
+          .filter((t) => t.status === 'done')
+          .map(mapBackendTrackToAudioFile)
+          .map((file) =>
+            playedIds.has(file.id) ? { ...file, status: 'played' as const } : file
+          );
+        setFiles(mapped);
       })
       .catch((err) => {
         if (cancelled) return;
@@ -124,6 +134,7 @@ export default function Home() {
   const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
   const handleMarkAsPlayed = useCallback((trackId: string) => {
+    addPlayedTrackId(trackId);
     setFiles((prevFiles) =>
       prevFiles.map((file) =>
         file.id === trackId ? { ...file, status: 'played' } : file
@@ -132,6 +143,7 @@ export default function Home() {
   }, []);
 
   const handleMarkAsNew = useCallback((trackId: string) => {
+    removePlayedTrackId(trackId);
     setFiles((prevFiles) =>
       prevFiles.map((file) =>
         file.id === trackId ? { ...file, status: 'new' } : file
