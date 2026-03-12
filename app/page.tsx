@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getTracks, mapBackendTrackToAudioFile } from '@/lib/api';
 import type { AudioFile } from '@/types';
 import AudioCard from '@/components/ui/AudioCard';
-import MiniPlayer from '@/components/layout/MiniPlayer';
+import { usePlayer } from '@/contexts/PlayerContext';
 
 /** How often to refresh the track list in the background (ms). */
 const PLAYLIST_REFRESH_INTERVAL_MS = 15_000;
@@ -15,10 +15,16 @@ const TRACKS_REQUEST_TIMEOUT_MS = 15_000;
 const ALL_CHANNELS_VALUE = "";
 
 export default function Home() {
+  const {
+    currentTrack,
+    isPlaying,
+    setCurrentTrack,
+    setIsPlaying,
+    setTrackEndedCallback,
+    setOnMarkAsPlayedInPlaylist,
+  } = usePlayer();
   const [activeTab, setActiveTab] = useState('new');
   const [selectedChannel, setSelectedChannel] = useState(ALL_CHANNELS_VALUE);
-  const [currentTrack, setCurrentTrack] = useState<AudioFile | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const [files, setFiles] = useState<AudioFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,13 +123,13 @@ export default function Home() {
 
   const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
-  const handleMarkAsPlayed = (trackId: string) => {
+  const handleMarkAsPlayed = useCallback((trackId: string) => {
     setFiles((prevFiles) =>
       prevFiles.map((file) =>
         file.id === trackId ? { ...file, status: 'played' } : file
       )
     );
-  };
+  }, []);
 
   /** Auto-advance to next track. Uses advancePlaylist (channel-only) so current track is still findable after it is marked played. */
   const handleTrackEnded = useCallback(() => {
@@ -140,7 +146,17 @@ export default function Home() {
       setCurrentTrack(null);
       setIsPlaying(false);
     }
-  }, [currentTrack, advancePlaylist]);
+  }, [currentTrack, advancePlaylist, setCurrentTrack, setIsPlaying]);
+
+  // Register track-ended and mark-as-played so MiniPlayer (in layout) can advance playlist and update files while on this page.
+  useEffect(() => {
+    setTrackEndedCallback(handleTrackEnded);
+    setOnMarkAsPlayedInPlaylist(handleMarkAsPlayed);
+    return () => {
+      setTrackEndedCallback(null);
+      setOnMarkAsPlayedInPlaylist(null);
+    };
+  }, [handleTrackEnded, handleMarkAsPlayed, setTrackEndedCallback, setOnMarkAsPlayedInPlaylist]);
 
   const fetchTracks = () => refreshPlaylist(false);
 
@@ -245,19 +261,6 @@ export default function Home() {
       {!loading && filesToShow.length === 0 && (
         <p className="text-center text-zinc-500 mt-8">No tracks yet</p>
       )}
-      <MiniPlayer
-        track={currentTrack}
-        isPlaying={isPlaying}
-        onPlayPause={() => setIsPlaying(!isPlaying)}
-        onClose={() => {
-          setCurrentTrack(null);
-          setIsPlaying(false);
-        }}
-        onMarkAsPlayed={() => {
-          if (currentTrack) handleMarkAsPlayed(currentTrack.id);
-        }}
-        onTrackEnded={handleTrackEnded}
-      />
     </div>
   );
 }

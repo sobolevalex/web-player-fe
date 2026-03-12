@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getChannels, generateDigest, getTracks } from '@/lib/api';
 import type { BackendChannel } from '@/lib/api';
 import ChannelCard from '@/components/ui/ChannelCard';
+import { usePlayerOptional } from '@/contexts/PlayerContext';
 
 /** Poll interval while waiting for a track to finish generating (ms). */
 const GENERATING_POLL_MS = 5000;
@@ -18,6 +19,8 @@ export default function ChannelsPage() {
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [errorChannelId, setErrorChannelId] = useState<number | null>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const player = usePlayerOptional();
+  const isPlayerVisible = !!player?.currentTrack;
 
   const fetchChannels = useCallback((silent = false) => {
     if (!silent) {
@@ -91,7 +94,7 @@ export default function ChannelsPage() {
   };
 
   return (
-    <div className="px-4 py-6 pb-32">
+    <div className={`px-4 py-6 ${isPlayerVisible ? 'pb-[230px]' : 'pb-32'}`}>
       <h1 className="mb-4 text-xl font-semibold text-zinc-900 dark:text-zinc-50">
         Channels
       </h1>
@@ -130,8 +133,12 @@ export default function ChannelsPage() {
         </ul>
       )}
 
-      {/* Manage channels bar: fixed above bottom nav */}
-      <div className="fixed bottom-14 left-0 right-0 z-30 mx-auto max-w-md px-4">
+      {/* Manage channels bar: above nav when no player; above mini player when playing (so order is: list → button → player → nav) */}
+      <div
+        className={`fixed left-0 right-0 z-50 mx-auto max-w-md px-4 transition-[bottom] duration-200 ${
+          isPlayerVisible ? 'bottom-[172px]' : 'bottom-14'
+        }`}
+      >
         <Link
           href="/channels/add"
           className="block w-full rounded-lg border border-zinc-200 bg-white py-3 text-center text-sm font-medium text-zinc-900 shadow-sm transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-50 dark:hover:bg-zinc-700"

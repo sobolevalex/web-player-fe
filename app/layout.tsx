@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { ResponsiveWrapper } from "@/components/layout/ResponsiveWrapper";
 import { BottomNav } from "@/components/layout/BottomNav";
+import { PlayerProvider } from "@/contexts/PlayerContext";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,12 +31,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <ResponsiveWrapper>
-          <div className="flex min-h-screen flex-col">
-            <main className="flex-1 overflow-auto pb-24">
-              {children}
-            </main>
-            <BottomNav />
-          </div>
+          <PlayerProvider>
+            <div className="flex min-h-screen flex-col">
+              <main className="flex-1 overflow-auto pb-24">
+                {children}
+              </main>
+              <BottomNav />
+            </div>
+          </PlayerProvider>
         </ResponsiveWrapper>
       </body>
     </html>
