@@ -1,7 +1,9 @@
 import type { AudioFile } from "@/types";
 
+// Empty = same-origin (API/media proxied by Next.js rewrites; use when only one hostname, e.g. app.sobolevfamily.com).
+// Non-empty = direct API URL (e.g. https://api.sobolevfamily.com when API has its own hostname in the tunnel).
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_TELEDIGEST_API_URL ?? "http://localhost:8000";
+  process.env.NEXT_PUBLIC_TELEDIGEST_API_URL ?? "";
 
 /**
  * Track object as returned by GET /api/tracks (backend shape).
@@ -87,7 +89,7 @@ export interface TelegramChannelsResponse {
 export function resolveTrackFileUrl(fileUrl: string | null): string {
   if (fileUrl == null || fileUrl === "") return "";
   if (fileUrl.startsWith("/")) {
-    return `${API_BASE_URL}${fileUrl}`;
+    return API_BASE_URL ? `${API_BASE_URL}${fileUrl}` : fileUrl;
   }
   return fileUrl;
 }
@@ -99,7 +101,7 @@ export function resolveTrackFileUrl(fileUrl: string | null): string {
 export function resolveTranscriptUrl(transcriptUrl: string | null): string {
   if (transcriptUrl == null || transcriptUrl === "") return "";
   if (transcriptUrl.startsWith("/")) {
-    return `${API_BASE_URL}${transcriptUrl}`;
+    return API_BASE_URL ? `${API_BASE_URL}${transcriptUrl}` : transcriptUrl;
   }
   return transcriptUrl;
 }
@@ -130,12 +132,14 @@ export async function getTracks(
   limit: number = 20,
   cursor?: string | null
 ): Promise<TracksResponse> {
-  const url = new URL(`${API_BASE_URL}/api/tracks`);
-  url.searchParams.set("limit", String(Math.min(100, Math.max(1, limit))));
-  if (cursor) {
-    url.searchParams.set("cursor", cursor);
-  }
-  const response = await fetch(url.toString());
+  const params = new URLSearchParams();
+  params.set("limit", String(Math.min(100, Math.max(1, limit))));
+  if (cursor) params.set("cursor", cursor);
+  const query = params.toString();
+  const url = API_BASE_URL
+    ? `${API_BASE_URL}/api/tracks?${query}`
+    : `/api/tracks${query ? `?${query}` : ""}`;
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Tracks request failed: ${response.status} ${response.statusText}`);
   }
@@ -149,7 +153,8 @@ export async function getTracks(
  * Uses no-store so newly added channels appear immediately (no browser cache).
  */
 export async function getChannels(): Promise<BackendChannel[]> {
-  const response = await fetch(`${API_BASE_URL}/api/channels`, {
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/channels` : "/api/channels";
+  const response = await fetch(url, {
     cache: "no-store",
   });
   if (!response.ok) {
@@ -162,7 +167,8 @@ export async function getChannels(): Promise<BackendChannel[]> {
  * Fetches a single channel by ID. Throws if 404.
  */
 export async function getChannel(channelId: number): Promise<BackendChannel> {
-  const response = await fetch(`${API_BASE_URL}/api/channels/${channelId}`);
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/channels/${channelId}` : `/api/channels/${channelId}`;
+  const response = await fetch(url);
   if (!response.ok) {
     if (response.status === 404) throw new Error("Channel not found");
     throw new Error(`Channel request failed: ${response.status} ${response.statusText}`);
@@ -174,7 +180,8 @@ export async function getChannel(channelId: number): Promise<BackendChannel> {
  * Creates a new channel. 400 if username missing/empty; 409 if username already exists.
  */
 export async function createChannel(payload: CreateChannelPayload): Promise<BackendChannel> {
-  const response = await fetch(`${API_BASE_URL}/api/channels`, {
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/channels` : "/api/channels";
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -193,7 +200,8 @@ export async function updateChannel(
   channelId: number,
   payload: UpdateChannelPayload
 ): Promise<BackendChannel> {
-  const response = await fetch(`${API_BASE_URL}/api/channels/${channelId}`, {
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/channels/${channelId}` : `/api/channels/${channelId}`;
+  const response = await fetch(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
@@ -210,7 +218,8 @@ export async function updateChannel(
  * Deletes a channel by ID. 404 if not found.
  */
 export async function deleteChannel(channelId: number): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/channels/${channelId}`, {
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/channels/${channelId}` : `/api/channels/${channelId}`;
+  const response = await fetch(url, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -225,7 +234,8 @@ export async function deleteChannel(channelId: number): Promise<void> {
  * Returns Telegram channels the configured account has access to. 502 on Telegram error; 503 if not configured.
  */
 export async function getTelegramChannels(): Promise<TelegramChannelsResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/telegram/channels`);
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/telegram/channels` : "/api/telegram/channels";
+  const response = await fetch(url);
   if (!response.ok) {
     throw new Error(`Telegram channels request failed: ${response.status} ${response.statusText}`);
   }
@@ -240,7 +250,8 @@ export async function getTelegramChannels(): Promise<TelegramChannelsResponse> {
  * 400 if no channels / digest not possible; 404 if channel_id given but not found.
  */
 export async function generateDigest(channelId?: number | null): Promise<GenerateResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/generate`, {
+  const url = API_BASE_URL ? `${API_BASE_URL}/api/generate` : "/api/generate";
+  const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(channelId != null ? { channel_id: channelId } : {}),
