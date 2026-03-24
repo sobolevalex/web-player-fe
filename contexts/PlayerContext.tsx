@@ -7,22 +7,29 @@ import {
   useRef,
   useCallback,
   type ReactNode,
+  type Dispatch,
+  type SetStateAction,
 } from 'react';
-import type { AudioFile } from '@/types';
+import type { AudioFile, AudioFileStatus } from '@/types';
 import MiniPlayer from '@/components/layout/MiniPlayer';
 
 type TrackEndedCallback = () => void;
 
+/** Merge listen fields from server into playlist + current track (registered by Home). */
+export type ApplyListenFromServerFn = (
+  trackId: string,
+  status: AudioFileStatus,
+  playbackPositionSeconds: number | null
+) => void;
+
 interface PlayerContextValue {
   currentTrack: AudioFile | null;
   isPlaying: boolean;
-  setCurrentTrack: (track: AudioFile | null) => void;
-  setIsPlaying: (playing: boolean) => void;
-  /** Register a callback to run when the current track ends (e.g. play next). Cleared when caller unmounts. */
+  setCurrentTrack: Dispatch<SetStateAction<AudioFile | null>>;
+  setIsPlaying: Dispatch<SetStateAction<boolean>>;
   setTrackEndedCallback: (cb: TrackEndedCallback | null) => void;
-  /** Called by Home to update playlist "played" status when user marks as played. */
-  onMarkAsPlayedInPlaylist: (trackId: string) => void;
-  setOnMarkAsPlayedInPlaylist: (fn: ((trackId: string) => void) | null) => void;
+  applyListenFromServer: ApplyListenFromServerFn;
+  setApplyListenFromServer: (fn: ApplyListenFromServerFn | null) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -35,7 +42,6 @@ export function usePlayer() {
   return ctx;
 }
 
-/** Optional hook for components that only need to read/set track when present (e.g. layout). */
 export function usePlayerOptional() {
   return useContext(PlayerContext);
 }
@@ -48,19 +54,22 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
   const [currentTrack, setCurrentTrack] = useState<AudioFile | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const trackEndedCallbackRef = useRef<TrackEndedCallback | null>(null);
-  const markAsPlayedInPlaylistRef = useRef<((trackId: string) => void) | null>(null);
+  const applyListenFromServerRef = useRef<ApplyListenFromServerFn | null>(null);
 
   const setTrackEndedCallback = useCallback((cb: TrackEndedCallback | null) => {
     trackEndedCallbackRef.current = cb;
   }, []);
 
-  const setOnMarkAsPlayedInPlaylist = useCallback((fn: ((trackId: string) => void) | null) => {
-    markAsPlayedInPlaylistRef.current = fn;
+  const setApplyListenFromServer = useCallback((fn: ApplyListenFromServerFn | null) => {
+    applyListenFromServerRef.current = fn;
   }, []);
 
-  const onMarkAsPlayedInPlaylist = useCallback((trackId: string) => {
-    markAsPlayedInPlaylistRef.current?.(trackId);
-  }, []);
+  const applyListenFromServer = useCallback<ApplyListenFromServerFn>(
+    (trackId, status, playbackPositionSeconds) => {
+      applyListenFromServerRef.current?.(trackId, status, playbackPositionSeconds);
+    },
+    []
+  );
 
   const handleTrackEnded = useCallback(() => {
     if (trackEndedCallbackRef.current) {
@@ -82,8 +91,8 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
     setCurrentTrack,
     setIsPlaying,
     setTrackEndedCallback,
-    onMarkAsPlayedInPlaylist,
-    setOnMarkAsPlayedInPlaylist,
+    applyListenFromServer,
+    setApplyListenFromServer,
   };
 
   return (
@@ -94,10 +103,8 @@ export function PlayerProvider({ children }: PlayerProviderProps) {
         isPlaying={isPlaying}
         onPlayPause={() => setIsPlaying((p) => !p)}
         onClose={handleClose}
-        onMarkAsPlayed={() => {
-          if (currentTrack) onMarkAsPlayedInPlaylist(currentTrack.id);
-        }}
         onTrackEnded={handleTrackEnded}
+        applyListenFromServer={applyListenFromServer}
       />
     </PlayerContext.Provider>
   );

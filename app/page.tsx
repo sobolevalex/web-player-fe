@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getTracks, mapBackendTrackToAudioFile } from '@/lib/api';
 import {
-  getPlayedTrackIds,
-  addPlayedTrackId,
-  removePlayedTrackId,
-} from '@/lib/played-storage';
-import type { AudioFile } from '@/types';
+  getTracks,
+  mapBackendTrackToAudioFile,
+  patchTrackListen,
+  listenStateFromBackendTrack,
+} from '@/lib/api';
+import { useTrackPlaybackWebSocket } from '@/lib/track-playback-ws';
+import type { AudioFile, AudioFileStatus } from '@/types';
 import AudioCard from '@/components/ui/AudioCard';
 import { usePlayer } from '@/contexts/PlayerContext';
 
@@ -17,7 +18,7 @@ const PLAYLIST_REFRESH_INTERVAL_MS = 15_000;
 /** Timeout for initial tracks request so we don't hang if backend is unreachable (ms). */
 const TRACKS_REQUEST_TIMEOUT_MS = 15_000;
 
-const ALL_CHANNELS_VALUE = "";
+const ALL_CHANNELS_VALUE = '';
 
 export default function Home() {
   const {
@@ -26,13 +27,45 @@ export default function Home() {
     setCurrentTrack,
     setIsPlaying,
     setTrackEndedCallback,
-    setOnMarkAsPlayedInPlaylist,
+    setApplyListenFromServer,
   } = usePlayer();
-  const [activeTab, setActiveTab] = useState('new');
+  const [activeTab, setActiveTab] = useState<'new' | 'started' | 'played' | 'all'>('new');
   const [selectedChannel, setSelectedChannel] = useState(ALL_CHANNELS_VALUE);
   const [files, setFiles] = useState<AudioFile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const mergeListen = useCallback(
+    (trackId: string, status: AudioFileStatus, playbackPositionSeconds: number | null) => {
+      setFiles((prev) =>
+        prev.map((f) =>
+          f.id === trackId
+            ? { ...f, status, playback_position_seconds: playbackPositionSeconds }
+            : f
+        )
+      );
+      setCurrentTrack((prev) =>
+        prev?.id === trackId
+          ? { ...prev, status, playback_position_seconds: playbackPositionSeconds }
+          : prev
+      );
+    },
+    [setCurrentTrack]
+  );
+
+  useTrackPlaybackWebSocket(
+    useCallback(
+      (msg) => {
+        mergeListen(String(msg.track_id), msg.play_status, msg.playback_position_seconds);
+      },
+      [mergeListen]
+    )
+  );
+
+  useEffect(() => {
+    setApplyListenFromServer(mergeListen);
+    return () => setApplyListenFromServer(null);
+  }, [mergeListen, setApplyListenFromServer]);
 
   const refreshPlaylist = useCallback((silent: boolean) => {
     if (!silent) {
@@ -44,16 +77,7 @@ export default function Home() {
         const newItems = res.items
           .filter((t) => t.status === 'done')
           .map(mapBackendTrackToAudioFile);
-        const persistedPlayed = getPlayedTrackIds();
-        setFiles((prevFiles) => {
-          const playedIds = new Set(persistedPlayed);
-          prevFiles
-            .filter((f) => f.status === 'played')
-            .forEach((f) => playedIds.add(f.id));
-          return newItems.map((file) =>
-            playedIds.has(file.id) ? { ...file, status: 'played' as const } : file
-          );
-        });
+        setFiles(newItems);
       })
       .catch((err) => {
         if (!silent) {
@@ -81,13 +105,9 @@ export default function Home() {
     Promise.race([getTracks(), timeoutPromise])
       .then((res) => {
         if (cancelled) return;
-        const playedIds = getPlayedTrackIds();
         const mapped = res.items
           .filter((t) => t.status === 'done')
-          .map(mapBackendTrackToAudioFile)
-          .map((file) =>
-            playedIds.has(file.id) ? { ...file, status: 'played' as const } : file
-          );
+          .map(mapBackendTrackToAudioFile);
         setFiles(mapped);
       })
       .catch((err) => {
@@ -104,7 +124,6 @@ export default function Home() {
     };
   }, []);
 
-  // Refresh track list periodically in the background (no loading spinner).
   useEffect(() => {
     const intervalId = setInterval(() => {
       refreshPlaylist(true);
@@ -122,10 +141,9 @@ export default function Home() {
       ? statusFilteredFiles
       : statusFilteredFiles.filter((file) => file.channel_name === selectedChannel);
 
-  // Presentation order: oldest to newest (backend returns newest first, so we reverse for display).
   const filesToShow = [...filteredFiles].reverse();
 
-  /** Same order as display but only filtered by channel (not by status). Used for auto-advance so we can find next track even after current is marked played and drops out of filesToShow. */
+  /** Channel-only ordering for auto-advance (track may disappear from New tab when marked played). */
   const advancePlaylist =
     selectedChannel === ALL_CHANNELS_VALUE
       ? [...files].reverse()
@@ -133,25 +151,32 @@ export default function Home() {
 
   const channelNames = [...new Set(files.map((f) => f.channel_name))].sort();
 
-  const handleMarkAsPlayed = useCallback((trackId: string) => {
-    addPlayedTrackId(trackId);
-    setFiles((prevFiles) =>
-      prevFiles.map((file) =>
-        file.id === trackId ? { ...file, status: 'played' } : file
-      )
-    );
-  }, []);
+  const handleMarkAsPlayed = useCallback(
+    async (trackId: string) => {
+      try {
+        const updated = await patchTrackListen(Number(trackId), { action: 'mark_played' });
+        const { status, playback_position_seconds } = listenStateFromBackendTrack(updated);
+        mergeListen(trackId, status, playback_position_seconds ?? null);
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [mergeListen]
+  );
 
-  const handleMarkAsNew = useCallback((trackId: string) => {
-    removePlayedTrackId(trackId);
-    setFiles((prevFiles) =>
-      prevFiles.map((file) =>
-        file.id === trackId ? { ...file, status: 'new' } : file
-      )
-    );
-  }, []);
+  const handleMarkAsNew = useCallback(
+    async (trackId: string) => {
+      try {
+        const updated = await patchTrackListen(Number(trackId), { action: 'mark_new' });
+        const { status, playback_position_seconds } = listenStateFromBackendTrack(updated);
+        mergeListen(trackId, status, playback_position_seconds ?? null);
+      } catch (e) {
+        console.error(e);
+      }
+    },
+    [mergeListen]
+  );
 
-  /** Auto-advance to next track. Uses advancePlaylist (channel-only) so current track is still findable after it is marked played. */
   const handleTrackEnded = useCallback(() => {
     if (!currentTrack) return;
     const currentIndex = advancePlaylist.findIndex((f) => f.id === currentTrack.id);
@@ -168,15 +193,10 @@ export default function Home() {
     }
   }, [currentTrack, advancePlaylist, setCurrentTrack, setIsPlaying]);
 
-  // Register track-ended and mark-as-played so MiniPlayer (in layout) can advance playlist and update files while on this page.
   useEffect(() => {
     setTrackEndedCallback(handleTrackEnded);
-    setOnMarkAsPlayedInPlaylist(handleMarkAsPlayed);
-    return () => {
-      setTrackEndedCallback(null);
-      setOnMarkAsPlayedInPlaylist(null);
-    };
-  }, [handleTrackEnded, handleMarkAsPlayed, setTrackEndedCallback, setOnMarkAsPlayedInPlaylist]);
+    return () => setTrackEndedCallback(null);
+  }, [handleTrackEnded, setTrackEndedCallback]);
 
   const fetchTracks = () => refreshPlaylist(false);
 
@@ -219,8 +239,9 @@ export default function Home() {
           ))}
         </select>
       </div>
-      <div className="mb-6 flex space-x-2">
+      <div className="mb-6 flex flex-wrap gap-2">
         <button
+          type="button"
           onClick={() => setActiveTab('new')}
           className={`px-4 py-2 rounded-full text-sm font-medium ${
             activeTab === 'new'
@@ -231,6 +252,18 @@ export default function Home() {
           New
         </button>
         <button
+          type="button"
+          onClick={() => setActiveTab('started')}
+          className={`px-4 py-2 rounded-full text-sm font-medium ${
+            activeTab === 'started'
+              ? 'bg-zinc-900 text-white dark:bg-zinc-50 dark:text-zinc-900'
+              : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400'
+          }`}
+        >
+          In progress
+        </button>
+        <button
+          type="button"
           onClick={() => setActiveTab('played')}
           className={`px-4 py-2 rounded-full text-sm font-medium ${
             activeTab === 'played'
@@ -241,6 +274,7 @@ export default function Home() {
           Played
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('all')}
           className={`px-4 py-2 rounded-full text-sm font-medium ${
             activeTab === 'all'
@@ -258,18 +292,27 @@ export default function Home() {
 
           return (
             <AudioCard
-              key={file.id} // Ключ всегда нужен внутри map
+              key={file.id}
               file={file}
               isActiveTrack={isActiveTrack}
               isThisTrackPlaying={isThisTrackPlaying}
-
-              // Передаем логику переключения плеера
-              onPlayToggle={() => {
+              onPlayToggle={async () => {
                 if (isThisTrackPlaying) {
                   setIsPlaying(false);
                 } else if (file.file_url) {
                   setCurrentTrack(file);
                   setIsPlaying(true);
+                  try {
+                    const updated = await patchTrackListen(Number(file.id), {
+                      action: 'progress',
+                      position_seconds: file.playback_position_seconds ?? 0,
+                    });
+                    const { status, playback_position_seconds } =
+                      listenStateFromBackendTrack(updated);
+                    mergeListen(file.id, status, playback_position_seconds ?? null);
+                  } catch (e) {
+                    console.error(e);
+                  }
                 }
               }}
               onMarkAsPlayed={() => handleMarkAsPlayed(file.id)}

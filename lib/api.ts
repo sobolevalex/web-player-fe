@@ -21,6 +21,9 @@ export interface BackendTrack {
   digest_created_at: string | null;
   channels_used: string[] | null;
   transcript_url: string | null;
+  /** Listen SSOT: new | started | played */
+  play_status: string;
+  playback_position_seconds: number | null;
 }
 
 /**
@@ -106,23 +109,87 @@ export function resolveTranscriptUrl(transcriptUrl: string | null): string {
   return transcriptUrl;
 }
 
+/** Normalize API play_status to frontend listen state. */
+export function normalizePlayStatus(raw: string | undefined | null): AudioFile["status"] {
+  if (raw === "started" || raw === "played") return raw;
+  return "new";
+}
+
+/** Fields to merge after PATCH / WebSocket listen updates. */
+export function listenStateFromBackendTrack(t: Pick<BackendTrack, "play_status" | "playback_position_seconds">): Pick<
+  AudioFile,
+  "status" | "playback_position_seconds"
+> {
+  return {
+    status: normalizePlayStatus(t.play_status),
+    playback_position_seconds: t.playback_position_seconds ?? null,
+  };
+}
+
 /**
  * Maps a backend track to the frontend AudioFile shape.
- * - id as string; status "done" or "progress" -> "new"; "played" is client-only.
- * - file_url resolved to full URL; duration omitted (optional in AudioFile).
+ * Digest `status` (done/progress) filters which rows are listed; listen state comes from play_status.
  */
 export function mapBackendTrackToAudioFile(backendTrack: BackendTrack): AudioFile {
-  // Backend "done" and "progress" both map to "new"; "played" is client-only.
-  const status: AudioFile["status"] = "new";
+  const listen = listenStateFromBackendTrack(backendTrack);
   return {
     id: String(backendTrack.id),
     title: backendTrack.title,
     channel_name: backendTrack.channel_name ?? "Unknown channel",
     file_url: resolveTrackFileUrl(backendTrack.file_url),
-    status,
+    status: listen.status,
+    playback_position_seconds: listen.playback_position_seconds,
     messages_start_at: backendTrack.messages_start_at ?? null,
     messages_end_at: backendTrack.messages_end_at ?? null,
   };
+}
+
+export type ListenPatchAction = "mark_new" | "mark_played" | "progress";
+
+export interface ListenPatchPayload {
+  action: ListenPatchAction;
+  /** Required when action is progress (in-track seconds). */
+  position_seconds?: number | null;
+}
+
+/**
+ * PATCH listen metadata; returns full track item (same shape as list items).
+ */
+export async function patchTrackListen(
+  trackId: number,
+  payload: ListenPatchPayload
+): Promise<BackendTrack> {
+  const url = API_BASE_URL
+    ? `${API_BASE_URL}/api/tracks/${trackId}/listen`
+    : `/api/tracks/${trackId}/listen`;
+  const body: Record<string, unknown> = { action: payload.action };
+  if (payload.action === "progress") {
+    body.position_seconds = payload.position_seconds ?? 0;
+  }
+  const response = await fetch(url, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const msg = await response.text();
+    throw new Error(msg || `Listen patch failed: ${response.status}`);
+  }
+  return response.json() as Promise<BackendTrack>;
+}
+
+/**
+ * WebSocket URL for listen sync. Next.js HTTP rewrites do not proxy WS — set env when API is on another origin.
+ * - NEXT_PUBLIC_TELEDIGEST_WS_URL: full ws(s) URL, e.g. ws://localhost:8000/ws/track-playback
+ * - Or NEXT_PUBLIC_TELEDIGEST_API_URL: derives ws(s)://host/ws/track-playback
+ */
+export function getTrackPlaybackWebSocketUrl(): string | null {
+  const explicit = process.env.NEXT_PUBLIC_TELEDIGEST_WS_URL?.trim();
+  if (explicit) return explicit;
+  const api = process.env.NEXT_PUBLIC_TELEDIGEST_API_URL?.trim();
+  if (!api) return null;
+  const wsBase = api.replace(/^http/, "ws").replace(/\/$/, "");
+  return `${wsBase}/ws/track-playback`;
 }
 
 /**

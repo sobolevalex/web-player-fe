@@ -45,15 +45,18 @@ export default function AudioCard({
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [menuOpen]);
 
-    const isNew = file.status === 'new';
+    const isPlayed = file.status === 'played';
     const handleMenuAction = () => {
-        if (isNew) {
-            onMarkAsPlayed();
-        } else {
+        if (isPlayed) {
             onMarkAsNew();
+        } else {
+            onMarkAsPlayed();
         }
         setMenuOpen(false);
     };
+
+    const statusLabel =
+        file.status === 'new' ? 'New' : file.status === 'started' ? 'In progress' : 'Played';
 
     return (
         <li
@@ -76,7 +79,7 @@ export default function AudioCard({
                 </p>
                 <div className="mt-1 flex items-center gap-2">
                     <span className="inline-block text-xs font-medium text-zinc-400 dark:text-zinc-500">
-                        {file.status === 'new' ? 'New' : 'Played'}
+                        {statusLabel}
                     </span>
                     {file.duration != null && (
                         <span className="text-xs text-zinc-400 dark:text-zinc-500">
@@ -124,7 +127,7 @@ export default function AudioCard({
                                 onClick={handleMenuAction}
                                 className="w-full px-3 py-2 text-left text-sm text-zinc-700 hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-700"
                             >
-                                {isNew ? 'Mark as played' : 'Mark as new'}
+                                {isPlayed ? 'Mark as new' : 'Mark as played'}
                             </button>
                         </div>
                     )}
